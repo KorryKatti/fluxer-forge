@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fluxer Forge — configure a bot, download it, run it</title>
+    <meta
+      name="description"
+      content="Pick Fluxer bot modules, generate a config.toml, download a ready-to-run archive. No accounts, no hosting, no backend."
+    />
+    <meta name="theme-color" content="#0a0a0c" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      html {
+        background: #0a0a0c;
+        color-scheme: dark;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="rule"></div>
+
+    <header class="top">
+      <div class="brand">
+        <span class="mark"></span>
+        FLUXER FORGE
+      </div>
+      <span class="mono dim">config schema v1</span>
+    </header>
+
+    <main class="wizard">
+      <nav class="stepper" id="stepper" aria-label="Steps"></nav>
+
+      <section class="card">
+        <div id="card-content"></div>
+        <div class="card-foot">
+          <button type="button" class="btn ghost" id="btn-back">Back</button>
+          <span class="foot-note mono dim" id="foot-note"></span>
+          <button type="button" class="btn primary" id="btn-next">Continue</button>
+          <span class="btn-spacer" id="btn-spacer" hidden></span>
+        </div>
+      </section>
+
+      <p class="below">
+        Fluxer has no slash commands or interactions, so modules speak prefix commands and
+        reactions. See the
+        <a href="https://docs.fluxer.app" target="_blank" rel="noreferrer">Fluxer docs</a>.
+      </p>
+    </main>
+
+    <script src="js/zip.js"></script>
+    <script src="js/modules.js"></script>
+    <script src="js/toml.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
