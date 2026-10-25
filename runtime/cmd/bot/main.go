@@ -1,5 +1,5 @@
 // Command bot is the Fluxer bot runtime: load config.toml, discover the
-// instance, prove the token, then stay connected and print incoming events.
+// instance, prove the token, then stay connected and run the enabled modules.
 //
 // Usage:
 //
@@ -16,13 +16,24 @@ import (
 	"syscall"
 
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/config"
+	"github.com/KorryKatti/fluxer-forge/runtime/internal/dispatch"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/fluxer"
+	botlog "github.com/KorryKatti/fluxer-forge/runtime/internal/log"
+	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/autorole"
+	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/welcome"
 )
 
 func main() {
 	configPath := flag.String("config", "config.toml", "path to the config file")
 	dryRunFlag := flag.Bool("dry-run", false, "force dry-run, whatever the config says")
 	flag.Parse()
+
+	closeLogs, err := botlog.Setup("logs")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: file logging is off: %v\n", err)
+	} else {
+		defer closeLogs()
+	}
 
 	// 1. Load and validate the config. Every problem is printed at once.
 	data, err := os.ReadFile(*configPath)
@@ -34,10 +45,12 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+	dryRun := cfg.Bot.DryRun || *dryRunFlag
 	slog.Info("config ok",
+		"config", *configPath,
 		"instance", cfg.InstanceURL,
 		"prefix", cfg.Bot.Prefix,
-		"dry_run", cfg.Bot.DryRun || *dryRunFlag,
+		"dry_run", dryRun,
 		"modules", enabledModules(cfg),
 	)
 
@@ -65,14 +78,26 @@ func main() {
 
 	// 3. Prove the token with one harmless API call.
 	rest := fluxer.NewClient(disco.Endpoints.APIPublic, token)
-	rest.DryRun = cfg.Bot.DryRun || *dryRunFlag
+	rest.DryRun = dryRun
 	user, err := rest.GetCurrentUser()
 	if err != nil {
 		fatal("token check failed", err)
 	}
 	slog.Info("token ok", "user", user.Username, "id", user.ID)
 
-	// 4. Stay connected. Run only returns when ctx is cancelled.
+	// 4. Build the modules this config turns on. Disabled modules are never
+	// created, so they cost nothing per event.
+	guilds := dispatch.NewGuilds()
+	var modules []dispatch.Module
+	if cfg.Modules.Welcome.Enabled {
+		modules = append(modules, welcome.New(cfg.Modules.Welcome, rest, guilds, dryRun))
+	}
+	if cfg.Modules.Autorole.Enabled {
+		modules = append(modules, autorole.New(cfg.Modules.Autorole, rest, dryRun))
+	}
+	dispatcher := dispatch.New(user.ID, guilds, modules...)
+
+	// 5. Stay connected. Run only returns when ctx is cancelled.
 	gateway := fluxer.NewGateway(disco.Endpoints.Gateway, token)
 	go gateway.Run(ctx)
 
@@ -83,7 +108,7 @@ func main() {
 			slog.Info("shutting down")
 			return
 		case ev := <-gateway.Events:
-			slog.Info("event", "name", ev.Name)
+			dispatcher.Dispatch(ctx, ev)
 		}
 	}
 }

@@ -76,6 +76,13 @@ frontend/      static site — plain HTML/CSS/JS, zero dependencies, no build st
     toml.js      config.toml serializer
     zip.js       release manifest fetch + in-browser ZIP writer
     app.js       wizard rendering + events
+runtime/       Go bot — one static binary, no dependencies at runtime
+  cmd/bot/                flags, startup sequence, event loop
+  internal/config/        config.toml structs, defaults, validation
+  internal/fluxer/        discovery, REST client, gateway client
+  internal/dispatch/      event router, guild filter, loop guards
+  internal/modules/       welcome, autorole
+  internal/log/           stdout + daily JSONL log file
 ```
 
 ## Running the site
@@ -99,5 +106,13 @@ Dockerfile with a `BINARY-MISSING.txt` note.
 
 ## Status
 
-Frontend is done. The Go runtime (gateway connection, event dispatch, the five
-modules) and the release pipeline are next.
+Frontend is done. The runtime connects, dispatches events, and ships the two v0
+modules (`welcome`, `autorole`). Next: the v1 modules and the release pipeline.
+
+Build it with:
+
+```sh
+cd runtime
+go build -o bot ./cmd/bot
+FLUXER_TOKEN=... ./bot -config config.toml
+```

@@ -152,3 +152,27 @@ func TestDryRunSkipsWritesButStillReads(t *testing.T) {
 		t.Errorf("server got %d calls, want 1 (the GET only)", got)
 	}
 }
+
+func TestCreateDMSendsRecipientAndReturnsChannelID(t *testing.T) {
+	var gotPath string
+	var gotBody map[string]string
+	client, _ := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Write([]byte(`{"id": "dm1"}`))
+	})
+
+	channelID, err := client.CreateDM("u1")
+	if err != nil {
+		t.Fatalf("CreateDM: %v", err)
+	}
+	if gotPath != "/users/@me/channels" {
+		t.Errorf("path = %q, want /users/@me/channels", gotPath)
+	}
+	if gotBody["recipient_id"] != "u1" {
+		t.Errorf("recipient_id = %q, want u1", gotBody["recipient_id"])
+	}
+	if channelID != "dm1" {
+		t.Errorf("channel = %q, want dm1", channelID)
+	}
+}

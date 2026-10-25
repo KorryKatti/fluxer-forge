@@ -210,6 +210,22 @@ func (c *Client) CreateMessage(channelID, content string) error {
 	return c.Do(http.MethodPost, "/channels/"+channelID+"/messages", body, nil)
 }
 
+// CreateDM opens (or reopens) a direct message with a user and returns the
+// channel ID messages should be posted to.
+func (c *Client) CreateDM(userID string) (string, error) {
+	body := map[string]string{"recipient_id": userID}
+	var channel struct {
+		ID string `json:"id"`
+	}
+	if err := c.Do(http.MethodPost, "/users/@me/channels", body, &channel); err != nil {
+		return "", err
+	}
+	if channel.ID == "" {
+		return "", fmt.Errorf("POST /users/@me/channels: response has no channel id")
+	}
+	return channel.ID, nil
+}
+
 // AddMemberRole gives a member a role (Manage Roles permission, role below the bot's).
 func (c *Client) AddMemberRole(guildID, userID, roleID string) error {
 	path := "/guilds/" + guildID + "/members/" + userID + "/roles/" + roleID
