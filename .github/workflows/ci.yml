@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/go.mod
+          cache-dependency-path: runtime/go.sum
+
+      - name: Test runtime
+        working-directory: runtime
+        run: go test ./...
+
+      - name: Vet runtime
+        working-directory: runtime
+        run: go vet ./...
+
+      - name: Schema is current
+        working-directory: runtime
+        run: |
+          go run ./cmd/bot -print-schema > /tmp/schema.json
+          diff -u ../schema/schema.json /tmp/schema.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check frontend and schema drift
+        run: |
+          for file in frontend/js/*.js; do node --check "$file"; done
+          node schema/check-frontend.mjs

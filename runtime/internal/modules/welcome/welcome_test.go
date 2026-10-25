@@ -43,7 +43,7 @@ func loadedGuilds() *dispatch.Guilds {
 func testConfig(message string) config.WelcomeModule {
 	return config.WelcomeModule{
 		Enabled: true,
-		OnJoin: config.WelcomeSection{
+		OnJoin: config.WelcomeJoin{
 			ChannelID: "c1",
 			Message:   message,
 		},
@@ -76,7 +76,7 @@ func TestJoinMessageRendersEveryToken(t *testing.T) {
 
 func TestLeaveMessageFallsBackToMention(t *testing.T) {
 	cfg := testConfig("")
-	cfg.OnLeave = config.WelcomeSection{Enabled: true, ChannelID: "c1", Message: "{user} left {guild} ({user.name})"}
+	cfg.OnLeave = config.WelcomeLeave{Enabled: true, ChannelID: "c1", Message: "{user} left {guild} ({user.name})"}
 	client := &fakeClient{}
 	w := New(cfg, client, loadedGuilds(), false)
 

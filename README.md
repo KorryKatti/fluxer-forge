@@ -64,18 +64,27 @@ Template tokens are a fixed set — `{user}`, `{user.name}`, `{user.id}`, `{guil
 never executable code. Unknown keys warn and are ignored; validation errors name
 the exact path and line.
 
+A complete starter lives in [`config.example.toml`](config.example.toml): welcome
+on, every other module present but off, and `dry_run = true`. It is parsed by the
+test suite, so it always stays valid. Copy it to `config.toml` and replace the
+placeholder channel ID.
+
 ## Repo layout
 
 ```
 README.md
+config.example.toml   valid starter config, checked by the test suite
 frontend/      static site — plain HTML/CSS/JS, zero dependencies, no build step
   index.html
   styles.css
   js/
     modules.js   module definitions + config state
+    validate.js  in-browser checks mirroring the Go validator
     toml.js      config.toml serializer
     zip.js       release manifest fetch + in-browser ZIP writer
     app.js       wizard rendering + events
+schema/        generated schema.json + frontend drift check
+.github/       ci, release and Pages workflows
 runtime/       Go bot — one static binary, no dependencies at runtime
   cmd/bot/                flags, startup sequence, event loop
   internal/config/        config.toml structs, defaults, validation
@@ -85,6 +94,7 @@ runtime/       Go bot — one static binary, no dependencies at runtime
   internal/log/           stdout + daily JSONL log file
   internal/token/         token from env, .env, token file, or prompt
   internal/doctor/        --doctor preflight checks
+  internal/schema/        schema.json generation (bot --print-schema)
 ```
 
 ## Running the site
@@ -104,14 +114,24 @@ download** — with a live `config.toml` preview and a config-only download for
 people who already have the binary. Binaries are listed per target
 (`linux-amd64`, `linux-arm64`, `windows-amd64`) in an optional `dist/latest.json`
 manifest; when none is published yet, the ZIP still ships config, scripts and
-Dockerfile with a `BINARY-MISSING.txt` note.
+Dockerfile with a `BINARY-MISSING.txt` note. A manifest built for a different
+config schema is refused, and downloaded binaries are checked against their
+SHA-256 before they enter the archive.
+
+The wizard validates as you type. Errors (missing channel IDs, bad snowflakes,
+empty required fields) disable the download buttons; warnings do not. The
+invite URL pre-fills the union of the enabled modules' permission bits.
 
 ## Status
 
 Frontend is done. The runtime connects, dispatches events, and ships all five
 modules: `welcome`, `autorole`, `reaction_roles`, `custom_commands` and
 `automod_lite`. The gateway reconnects with backoff and resumes the session with
-the last sequence. Next: zstd, the release pipeline and hosted binaries.
+the last sequence. `schema/schema.json` is generated from the Go structs and
+checked in CI against both the binary and the hand-written frontend forms.
+Tagging `v*` builds all three targets, publishes `dist/latest.json` and the
+binaries to a `dist` branch, and deploys the site to Pages. Next: zstd, update
+checks and generated docs.
 
 Build it with:
 
@@ -120,6 +140,7 @@ cd runtime
 go build -o bot ./cmd/bot
 ./bot -config config.toml
 ./bot -doctor -config config.toml   # instance, token, gateway, channels
+./bot -print-schema > ../schema/schema.json
 ```
 
 The token is read from `FLUXER_TOKEN`, then `./.env`, then `./token`, then a

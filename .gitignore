@@ -2,3 +2,4 @@ plan.md
 logs/
 runtime/bot
 runtime/token
+frontend/dist/

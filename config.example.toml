@@ -1,0 +1,47 @@
+# Fluxer Forge — starter config.
+#
+# Replace the channel ID below with a real one from your guild
+# (right-click a channel → Copy ID). Keep dry_run = true for the first
+# run: the bot logs what it would do instead of sending anything.
+#
+# Every ID is a quoted string. Unknown keys are ignored with a warning.
+
+schema_version = 1
+instance_url = "https://fluxer.app"
+
+[bot]
+prefix = "!"
+dry_run = true
+
+[modules.welcome]
+enabled = true
+
+[modules.welcome.on_join]
+channel_id = "1501314428688998182"
+message = "Welcome {user} to {guild}!"
+dm = false
+
+[modules.welcome.on_leave]
+enabled = false
+channel_id = "1501314428688998182"
+message = "{user} left {guild}."
+
+[modules.autorole]
+enabled = false
+roles = []
+
+[modules.autorole.settings]
+delay_seconds = 0
+
+[modules.reaction_roles]
+enabled = false
+
+[modules.custom_commands]
+enabled = false
+
+[modules.automod_lite]
+enabled = false
+
+[modules.automod_lite.settings]
+block_invites = true
+max_mentions = 5

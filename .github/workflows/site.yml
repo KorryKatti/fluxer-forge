@@ -1,0 +1,46 @@
+name: site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch release manifest
+        run: |
+          mkdir -p frontend/dist
+          if curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/dist/latest.json" -o frontend/dist/latest.json; then
+            echo "Using the published binary manifest."
+          else
+            rm -f frontend/dist/latest.json
+            echo "No dist branch yet; the site will offer config-only downloads."
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,126 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/go.mod
+          cache-dependency-path: runtime/go.sum
+
+      - name: Test runtime
+        working-directory: runtime
+        run: go test ./...
+
+      - name: Schema is current
+        working-directory: runtime
+        run: |
+          go run ./cmd/bot -print-schema > /tmp/schema.json
+          diff -u ../schema/schema.json /tmp/schema.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check frontend and schema drift
+        run: |
+          for file in frontend/js/*.js; do node --check "$file"; done
+          node schema/check-frontend.mjs
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: linux-amd64
+            goos: linux
+            goarch: amd64
+            binary: bot
+          - target: linux-arm64
+            goos: linux
+            goarch: arm64
+            binary: bot
+          - target: windows-amd64
+            goos: windows
+            goarch: amd64
+            binary: bot.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/go.mod
+          cache-dependency-path: runtime/go.sum
+
+      - name: Build ${{ matrix.target }}
+        working-directory: runtime
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p "../dist/${{ matrix.target }}"
+          go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+            -o "../dist/${{ matrix.target }}/${{ matrix.binary }}" ./cmd/bot
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/${{ matrix.target }}/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/go.mod
+          cache-dependency-path: runtime/go.sum
+
+      - name: Write latest.json
+        env:
+          REPO: ${{ github.repository }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          cd runtime
+          go run ./cmd/bot -print-schema > /tmp/schema.json
+          cd ..
+          python3 schema/make-manifest.py "$REPO" "$VERSION" /tmp/schema.json dist
+
+      - name: Publish dist branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: dist
+          publish_dir: ./dist
+          force_orphan: false
+          commit_message: "release ${{ github.ref_name }}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/linux-amd64/bot
+            dist/linux-arm64/bot
+            dist/windows-amd64/bot.exe
+            dist/latest.json
+          generate_release_notes: true

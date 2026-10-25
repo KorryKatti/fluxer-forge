@@ -2,6 +2,16 @@
 
 const STEPS = ['Connection', 'Modules', 'Review']
 
+// Fluxer permission bits, from docs.fluxer.app/http-api/permissions.
+const PERMISSIONS = {
+  add_reactions: { bit: 1n << 6n, label: 'Add reactions' },
+  view_channel: { bit: 1n << 10n, label: 'View channels' },
+  send_messages: { bit: 1n << 11n, label: 'Send messages' },
+  manage_messages: { bit: 1n << 13n, label: 'Manage messages' },
+  embed_links: { bit: 1n << 14n, label: 'Embed links' },
+  manage_roles: { bit: 1n << 28n, label: 'Manage roles' },
+}
+
 const params = new URLSearchParams(window.location.search)
 const initialStep = Math.min(2, Math.max(0, Number(params.get('step') ?? 0) || 0))
 
@@ -37,6 +47,36 @@ function esc(value) {
 
 function instanceValid() {
   return /^https?:\/\/[^\s]+$/.test(state.config.instanceUrl.trim())
+}
+
+function validation() {
+  return validateConfig(state.config, MODULES)
+}
+
+function validationReportHtml() {
+  const { errors, warnings } = validation()
+  if (errors.length === 0 && warnings.length === 0) {
+    return '<p class="validate ok">Config looks valid.</p>'
+  }
+  const items = (list, kind) =>
+    list
+      .map(
+        (entry) =>
+          `<li class="${kind}"><code>${esc(entry.path)}</code> ${esc(entry.message)}</li>`,
+      )
+      .join('')
+  return `<div class="validate">
+    ${
+      errors.length
+        ? `<p class="validate-head bad">${errors.length} error${errors.length === 1 ? '' : 's'} — fix before downloading</p><ul>${items(errors, 'err')}</ul>`
+        : ''
+    }
+    ${
+      warnings.length
+        ? `<p class="validate-head">${warnings.length} warning${warnings.length === 1 ? '' : 's'}</p><ul>${items(warnings, 'warn')}</ul>`
+        : ''
+    }
+  </div>`
 }
 
 // ---------- state mutations ----------
@@ -238,6 +278,10 @@ function moduleCardHtml(def, index) {
           <span class="stage ${esc(def.stage)}">${esc(def.stage)}</span>
         </span>
         <span class="mcard-blurb">${esc(def.blurb)}</span>
+        <span class="mcard-perms">${
+          (def.permissions ?? []).map((name) => PERMISSIONS[name]?.label).filter(Boolean).join(' · ') ||
+          'No special permissions'
+        }</span>
       </div>
       <button type="button" class="chev" aria-expanded="${expanded}" aria-label="${
         expanded ? `Collapse ${esc(def.name)}` : `Expand ${esc(def.name)}`
@@ -331,16 +375,33 @@ function clientIdFromToken(token) {
   return /^\d{5,}$/.test(first) ? first : null
 }
 
+function invitePermissions() {
+  let mask = 0n
+  for (const def of MODULES) {
+    if (!state.config.modules[def.id]?.enabled) continue
+    for (const name of def.permissions ?? []) {
+      const permission = PERMISSIONS[name]
+      if (permission) mask |= permission.bit
+    }
+  }
+  return mask
+}
+
 function inviteUrl() {
   const clientId = clientIdFromToken(dl.token)
   if (!clientId) return null
-  return `${webBase(state.config.instanceUrl)}/oauth2/authorize?client_id=${clientId}&scope=bot`
+  const params = new URLSearchParams({ client_id: clientId, scope: 'bot' })
+  const mask = invitePermissions()
+  if (mask > 0n) params.set('permissions', mask.toString())
+  return `${webBase(state.config.instanceUrl)}/oauth2/authorize?${params.toString()}`
 }
 
 function step2Html() {
   const cfg = state.config
   const toml = buildToml(cfg, MODULES)
   const lines = toml.trimEnd().split('\n')
+  const check = validation()
+  const blocked = check.errors.length > 0
 
   const summary = `<div class="summary">
     <span class="tag">${enabledModuleCount(cfg)} modules</span>
@@ -361,7 +422,9 @@ function step2Html() {
     <button type="button" class="btn ghost copy" id="btn-copy">${dl.copied ? 'Copied' : 'Copy config'}</button>
   </div>`
 
-  const available = dl.manifest ? Object.keys(dl.manifest.targets) : [...TARGETS]
+  const published =
+    dl.manifest && !dl.manifest.incompatible ? Object.keys(dl.manifest.targets ?? {}) : []
+  const available = published.length ? published : [...TARGETS]
   if (!available.includes(dl.target)) dl.target = available[0]
   const invite = inviteUrl()
 
@@ -379,10 +442,10 @@ function step2Html() {
       </label>
     </div>
     <div class="dl-actions">
-      <button type="button" class="btn primary" id="btn-zip" ${dl.busy ? 'disabled' : ''}>${
-        dl.busy ? 'Packing…' : 'Download ZIP'
-      }</button>
-      <button type="button" class="btn ghost" id="btn-toml">config.toml only</button>
+      <button type="button" class="btn primary" id="btn-zip" ${
+        dl.busy || blocked ? 'disabled' : ''
+      }>${dl.busy ? 'Packing…' : 'Download ZIP'}</button>
+      <button type="button" class="btn ghost" id="btn-toml" ${blocked ? 'disabled' : ''}>config.toml only</button>
     </div>
     ${
       invite
@@ -393,9 +456,11 @@ function step2Html() {
     <p class="fine">${
       dl.manifest === undefined
         ? 'Checking for a published build…'
-        : dl.manifest
-          ? `Binary ${dl.manifest.version ?? 'unknown'} · schema ${dl.manifest.schema_version ?? '?'}`
-          : 'No build published yet — the ZIP will carry config, scripts and Dockerfile.'
+        : dl.manifest?.incompatible
+          ? `No compatible binary: release schema ${dl.manifest.schema_version ?? 'unknown'}, site schema ${SUPPORTED_SCHEMA_VERSION}.`
+          : dl.manifest
+            ? `Binary ${dl.manifest.version ?? 'unknown'} · schema ${dl.manifest.schema_version ?? '?'}`
+            : 'No build published yet — the ZIP will carry config, scripts and Dockerfile.'
     }</p>
     <p class="fine">Nothing is uploaded. The token stays in this tab.</p>
   </div>`
@@ -407,6 +472,14 @@ function step2Html() {
     </div>
     <div class="card-body">
       ${summary}
+      ${validationReportHtml()}
+      ${
+        dl.manifest?.incompatible
+          ? `<div class="validate"><p class="validate-head bad">The published binary is for config schema ${
+              esc(dl.manifest.schema_version ?? 'unknown')
+            }, but this site writes schema ${SUPPORTED_SCHEMA_VERSION}. It will not be offered.</p></div>`
+          : ''
+      }
       ${preview}
       ${download}
     </div>`
@@ -425,13 +498,23 @@ function renderStepper() {
 }
 
 function renderFoot() {
+  const { errors, warnings } = validation()
   $back.disabled = state.step === 0
+
+  const counts = []
+  if (errors.length) counts.push(`${errors.length} error${errors.length === 1 ? '' : 's'}`)
+  if (warnings.length) counts.push(`${warnings.length} warning${warnings.length === 1 ? '' : 's'}`)
+  const state_ = counts.length ? counts.join(' · ') : 'Config looks valid.'
+
   $footNote.textContent =
     state.step === 0
       ? 'No account, no upload.'
       : state.step === 1
-        ? 'Ids are strings. Unknown keys are ignored.'
-        : 'Check the binary target before downloading.'
+        ? state_
+        : errors.length
+          ? `${counts[0]} — fix before downloading`
+          : counts.join(' · ') || 'Ready to download.'
+  $footNote.classList.toggle('bad', state.step > 0 && errors.length > 0)
 
   const last = state.step === STEPS.length - 1
   $next.hidden = last
@@ -505,10 +588,12 @@ $content.addEventListener('input', (event) => {
   }
   if (d.bind === 'prefix') {
     state.config.prefix = el.value
+    renderFoot()
     return
   }
   if (d.bind === 'dryRun') {
     state.config.dryRun = el.checked
+    renderFoot()
     return
   }
   if (d.bind === 'token') {
@@ -526,6 +611,7 @@ $content.addEventListener('input', (event) => {
 
   if (d.sec) setField(d.mod, d.sec, d.field, value)
   else if (d.list) setItemField(d.mod, d.list, Number(d.idx), d.field, value)
+  renderFoot()
 })
 
 $content.addEventListener('change', (event) => {
@@ -579,11 +665,13 @@ $content.addEventListener('click', async (event) => {
     if (d.act === 'add-item') {
       addItem(d.mod, d.list)
       renderCard()
+      renderFoot()
       return
     }
     if (d.act === 'remove-item') {
       removeItem(d.mod, d.list, Number(d.idx))
       renderCard()
+      renderFoot()
       return
     }
   }
@@ -605,11 +693,21 @@ $content.addEventListener('click', async (event) => {
   }
 
   if (event.target.id === 'btn-toml') {
+    if (validation().errors.length) {
+      dl.status = 'Fix the config errors before downloading.'
+      renderCard()
+      return
+    }
     downloadBlob(new Blob([buildToml(state.config, MODULES)], { type: 'text/plain' }), 'config.toml')
     return
   }
 
   if (event.target.id === 'btn-zip') {
+    if (validation().errors.length) {
+      dl.status = 'Fix the config errors before downloading.'
+      renderCard()
+      return
+    }
     const tokenInput = $content.querySelector('[data-bind="token"]')
     dl.token = tokenInput ? tokenInput.value : dl.token
     dl.busy = true

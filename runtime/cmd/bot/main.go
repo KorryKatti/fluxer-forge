@@ -27,6 +27,7 @@ import (
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/customcommands"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/reactionroles"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/welcome"
+	"github.com/KorryKatti/fluxer-forge/runtime/internal/schema"
 	bottoken "github.com/KorryKatti/fluxer-forge/runtime/internal/token"
 )
 
@@ -38,10 +39,24 @@ func main() {
 	dryRunFlag := flag.Bool("dry-run", false, "force dry-run, whatever the config says")
 	doctorFlag := flag.Bool("doctor", false, "check the instance, token, gateway and channels, then exit")
 	versionFlag := flag.Bool("version", false, "print the version and exit")
+	schemaFlag := flag.Bool("print-schema", false, "print the config schema as JSON and exit")
 	flag.Parse()
 
 	if *versionFlag {
 		fmt.Printf("fluxer-bot %s (schema %d)\n", version, config.SupportedSchemaVersion)
+		return
+	}
+
+	if *schemaFlag {
+		data, err := schema.Marshal()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot generate schema: %v\n", err)
+			os.Exit(1)
+		}
+		if _, err := os.Stdout.Write(data); err != nil {
+			fmt.Fprintf(os.Stderr, "cannot write schema: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 

@@ -1,6 +1,13 @@
 // Release manifest loading, ZIP building (stored, no deps) and downloads.
 
-const MANIFEST_URL = 'dist/latest.json'
+// Remote first so a new release is visible without redeploying the site;
+// the local copy is a fallback for offline use and the Pages build.
+const MANIFEST_URLS = [
+  'https://raw.githubusercontent.com/KorryKatti/fluxer-forge/dist/latest.json',
+  'dist/latest.json',
+]
+// Keep in sync with runtime/internal/config.SupportedSchemaVersion.
+const SUPPORTED_SCHEMA_VERSION = 1
 
 const TARGETS = ['linux-amd64', 'linux-arm64', 'windows-amd64']
 
@@ -12,15 +19,20 @@ function detectTarget() {
 }
 
 async function loadManifest() {
-  try {
-    const res = await fetch(MANIFEST_URL, { cache: 'no-store' })
-    if (!res.ok) return null
-    const data = await res.json()
-    if (!data || typeof data !== 'object' || !data.targets) return null
-    return data
-  } catch {
-    return null
+  for (const url of MANIFEST_URLS) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' })
+      if (!res.ok) continue
+      const data = await res.json()
+      if (!data || typeof data !== 'object' || !data.targets) continue
+      // A config this site writes must be readable by the binary it offers.
+      data.incompatible = Number(data.schema_version) !== SUPPORTED_SCHEMA_VERSION
+      return data
+    } catch {
+      // try the next URL
+    }
   }
+  return null
 }
 
 const CRC_TABLE = (() => {
@@ -208,22 +220,44 @@ async function buildZip(toml, exampleToml, options) {
     add('.env.example', 'FLUXER_TOKEN=\n')
   }
 
-  const target = options.manifest?.targets?.[options.target]
+  const incompatible =
+    options.manifest?.incompatible === true ||
+    (options.manifest != null &&
+      Number(options.manifest.schema_version) !== SUPPORTED_SCHEMA_VERSION)
+  const target = incompatible ? null : options.manifest?.targets?.[options.target]
   if (target?.url) {
     try {
       const res = await fetch(target.url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = new Uint8Array(await res.arrayBuffer())
+      if (target.sha256) {
+        const digest = await crypto.subtle.digest('SHA-256', data)
+        const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+        if (hex !== String(target.sha256).toLowerCase()) {
+          throw new Error('SHA-256 checksum does not match the manifest')
+        }
+      }
+      if (target.size && Number(target.size) !== data.length) {
+        throw new Error(`size ${data.length} does not match the manifest (${target.size})`)
+      }
       const name = options.target === 'windows-amd64' ? 'bot.exe' : 'bot'
       files.push({ name, data })
       names.push(name)
       binaryIncluded = true
-    } catch {
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'unknown error'
       add(
         'BINARY-MISSING.txt',
-        `The prebuilt binary for ${options.target} could not be downloaded.\n${target.url}\n\nDownload it manually and place it next to config.toml, or build from source.\n`,
+        `The prebuilt binary for ${options.target} could not be downloaded: ${reason}.\n${target.url}\n\nDownload it manually and place it next to config.toml, or build from source.\n`,
       )
     }
+  } else if (incompatible) {
+    add(
+      'BINARY-MISSING.txt',
+      `The published binary was built for config schema ${options.manifest.schema_version ?? 'unknown'}, ` +
+        `but this site writes schema ${SUPPORTED_SCHEMA_VERSION}. It is not offered, because a config ` +
+        `the binary cannot read is worse than no binary.\n\nWait for a matching release, or build from source.\n`,
+    )
   } else {
     add(
       'BINARY-MISSING.txt',

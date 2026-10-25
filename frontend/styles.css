@@ -25,6 +25,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   background: var(--desktop);
   color-scheme: light;
@@ -322,6 +326,10 @@ a:visited {
   color: var(--gray-text);
 }
 
+.foot-note.bad {
+  color: var(--error);
+}
+
 .btn-spacer {
   width: 75px;
   flex: none;
@@ -590,6 +598,14 @@ select {
   color: var(--gray-text);
 }
 
+.mcard-perms {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--light-gray);
+}
+
 .mcard:not(.on) .mcard-name {
   color: var(--gray-text);
 }
@@ -795,6 +811,56 @@ select {
 
 .tag.mono {
   font-family: var(--mono);
+}
+
+.validate {
+  margin-bottom: 12px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--face-mid);
+  border-left: 1px solid var(--face-mid);
+  border-right: 1px solid var(--face-light);
+  border-bottom: 1px solid var(--face-light);
+  background: #ffffff;
+}
+
+.validate.ok {
+  margin: 0 0 12px;
+  color: var(--success);
+  font-size: 10.5px;
+}
+
+.validate-head {
+  margin: 0;
+  color: var(--gray-text);
+  font-weight: bold;
+}
+
+.validate-head.bad {
+  color: var(--error);
+}
+
+.validate ul {
+  margin: 5px 0 0;
+  padding-left: 18px;
+}
+
+.validate li {
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.validate li.err {
+  color: var(--error);
+}
+
+.validate li.warn {
+  color: #7a5a00;
+}
+
+.validate li code {
+  background: transparent;
+  padding: 0;
+  font-weight: bold;
 }
 
 .preview {

@@ -58,22 +58,29 @@ func (w *Welcome) Handle(ctx context.Context, ev dispatch.Event) error {
 		return nil
 	}
 
-	var section config.WelcomeSection
+	var (
+		channelID string
+		message   string
+		viaDM     bool
+	)
 	switch ev.Name {
 	case "GUILD_MEMBER_ADD":
-		section = w.cfg.OnJoin
+		channelID, message, viaDM = w.cfg.OnJoin.ChannelID, w.cfg.OnJoin.Message, w.cfg.OnJoin.DM
 	case "GUILD_MEMBER_REMOVE":
-		section = w.cfg.OnLeave
+		if !w.cfg.OnLeave.Enabled {
+			return nil
+		}
+		channelID, message = w.cfg.OnLeave.ChannelID, w.cfg.OnLeave.Message
 	default:
 		return nil
 	}
-	if section.ChannelID == "" || section.Message == "" {
+	if channelID == "" || message == "" {
 		return nil
 	}
 
-	text := w.render(section.Message, m, section.ChannelID)
+	text := w.render(message, m, channelID)
 
-	if err := w.client.CreateMessage(section.ChannelID, text); err != nil {
+	if err := w.client.CreateMessage(channelID, text); err != nil {
 		return fmt.Errorf("post welcome message: %w", err)
 	}
 	if w.dryRun {
@@ -83,7 +90,7 @@ func (w *Welcome) Handle(ctx context.Context, ev dispatch.Event) error {
 	}
 
 	// On join only, optionally repeat the same text as a direct message.
-	if ev.Name == "GUILD_MEMBER_ADD" && section.DM {
+	if ev.Name == "GUILD_MEMBER_ADD" && viaDM {
 		if w.dryRun {
 			slog.Info("dry-run: would send direct message", "user", m.User.ID)
 			return nil

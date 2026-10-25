@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "title": "Fluxer Forge configuration",
+  "description": "Generated from runtime/internal/config. Do not edit by hand.",
+  "type": "object",
+  "max_depth": 3,
+  "required": [
+    "schema_version",
+    "instance_url"
+  ],
+  "properties": {
+    "bot": {
+      "type": "object",
+      "properties": {
+        "dry_run": {
+          "type": "boolean"
+        },
+        "prefix": {
+          "type": "string",
+          "maxLength": 4
+        }
+      }
+    },
+    "instance_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "modules": {
+      "type": "object",
+      "properties": {
+        "automod_lite": {
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "banned_words": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "settings": {
+              "type": "object",
+              "properties": {
+                "block_invites": {
+                  "type": "boolean"
+                },
+                "max_mentions": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        "autorole": {
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "snowflake"
+              }
+            },
+            "settings": {
+              "type": "object",
+              "properties": {
+                "delay_seconds": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        "custom_commands": {
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "aliases": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "cooldown": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "reply": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "reaction_roles": {
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "channel_id": {
+                    "type": "string",
+                    "format": "snowflake"
+                  },
+                  "emoji": {
+                    "type": "string"
+                  },
+                  "message_id": {
+                    "type": "string",
+                    "format": "snowflake"
+                  },
+                  "role_id": {
+                    "type": "string",
+                    "format": "snowflake"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "welcome": {
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "on_join": {
+              "type": "object",
+              "properties": {
+                "channel_id": {
+                  "type": "string",
+                  "format": "snowflake"
+                },
+                "dm": {
+                  "type": "boolean"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            },
+            "on_leave": {
+              "type": "object",
+              "properties": {
+                "channel_id": {
+                  "type": "string",
+                  "format": "snowflake"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    }
+  }
+}

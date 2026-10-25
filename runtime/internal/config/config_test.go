@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -347,5 +348,25 @@ max_mentions = -1
 	}
 	if !strings.Contains(err.Error(), "max_mentions") {
 		t.Errorf("error does not mention max_mentions:\n%v", err)
+	}
+}
+
+// TestCommittedExampleConfigIsValid keeps config.example.toml runnable: the
+// starter file in the repo must always pass the same validation as a
+// downloaded config.
+func TestCommittedExampleConfigIsValid(t *testing.T) {
+	data, err := os.ReadFile("../../../config.example.toml")
+	if err != nil {
+		t.Fatalf("read config.example.toml: %v", err)
+	}
+	cfg, err := Parse("config.example.toml", data)
+	if err != nil {
+		t.Fatalf("config.example.toml is invalid: %v", err)
+	}
+	if !cfg.Modules.Welcome.Enabled {
+		t.Error("example config should have welcome enabled as a working demo")
+	}
+	if !cfg.Bot.DryRun {
+		t.Error("example config must default to dry_run = true")
 	}
 }

@@ -7,6 +7,7 @@ const MODULES = [
     blurb: 'Greet new members and announce departures.',
     stage: 'v0',
     defaultEnabled: true,
+    permissions: ['view_channel', 'send_messages'],
     sections: [
       {
         key: 'on_join',
@@ -62,6 +63,7 @@ const MODULES = [
     blurb: 'Give members a role the moment they join.',
     stage: 'v0',
     defaultEnabled: true,
+    permissions: ['manage_roles'],
     sections: [
       {
         key: 'settings',
@@ -93,6 +95,7 @@ const MODULES = [
     name: 'Reaction roles',
     blurb: 'Members pick roles by reacting to a message.',
     stage: 'v1',
+    permissions: ['view_channel', 'add_reactions', 'manage_roles'],
     sections: [],
     lists: [
       {
@@ -113,6 +116,7 @@ const MODULES = [
     name: 'Custom commands',
     blurb: 'Prefix commands that reply with text or an embed.',
     stage: 'v1',
+    permissions: ['view_channel', 'send_messages', 'embed_links'],
     sections: [],
     lists: [
       {
@@ -133,6 +137,7 @@ const MODULES = [
     name: 'AutoMod lite',
     blurb: 'Drop invites, banned words and mention floods.',
     stage: 'v1',
+    permissions: ['view_channel', 'manage_messages'],
     sections: [
       {
         key: 'settings',

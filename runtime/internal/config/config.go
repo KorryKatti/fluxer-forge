@@ -19,14 +19,14 @@ import (
 const SupportedSchemaVersion = 1
 
 type Config struct {
-	SchemaVersion int     `toml:"schema_version"`
-	InstanceURL   string  `toml:"instance_url"`
+	SchemaVersion int     `toml:"schema_version" schema:"required,const=1"`
+	InstanceURL   string  `toml:"instance_url" schema:"required,format=uri"`
 	Bot           Bot     `toml:"bot"`
 	Modules       Modules `toml:"modules"`
 }
 
 type Bot struct {
-	Prefix string `toml:"prefix"`
+	Prefix string `toml:"prefix" schema:"maxLength=4"`
 	DryRun bool   `toml:"dry_run"`
 }
 
@@ -39,58 +39,63 @@ type Modules struct {
 }
 
 type WelcomeModule struct {
-	Enabled bool           `toml:"enabled"`
-	OnJoin  WelcomeSection `toml:"on_join"`
-	OnLeave WelcomeSection `toml:"on_leave"`
+	Enabled bool         `toml:"enabled" schema:"required"`
+	OnJoin  WelcomeJoin  `toml:"on_join"`
+	OnLeave WelcomeLeave `toml:"on_leave"`
 }
 
-// WelcomeSection holds both the join and the leave message. OnJoin has no
-// "enabled" line of its own (it follows the module); OnLeave does.
-type WelcomeSection struct {
-	Enabled   bool   `toml:"enabled"`
-	ChannelID string `toml:"channel_id"`
+// WelcomeJoin follows the module's enabled flag, so it has no "enabled" of
+// its own. Only joins can send a direct message.
+type WelcomeJoin struct {
+	ChannelID string `toml:"channel_id" schema:"format=snowflake"`
 	Message   string `toml:"message"`
 	DM        bool   `toml:"dm"`
 }
 
+type WelcomeLeave struct {
+	Enabled   bool   `toml:"enabled"`
+	ChannelID string `toml:"channel_id" schema:"format=snowflake"`
+	Message   string `toml:"message"`
+}
+
 type AutoroleModule struct {
-	Enabled  bool     `toml:"enabled"`
-	Roles    []string `toml:"roles"`
+	Enabled  bool     `toml:"enabled" schema:"required"`
+	Roles    []string `toml:"roles" schema:"snowflake"`
 	Settings struct {
-		DelaySeconds int `toml:"delay_seconds"`
+		DelaySeconds int `toml:"delay_seconds" schema:"min=0"`
 	} `toml:"settings"`
 }
 
 type ReactionRolesModule struct {
-	Enabled bool               `toml:"enabled"`
+	Enabled bool               `toml:"enabled" schema:"required"`
 	Rules   []ReactionRoleRule `toml:"rules"`
 }
 
 type ReactionRoleRule struct {
-	ChannelID string `toml:"channel_id"`
-	MessageID string `toml:"message_id"`
+	ChannelID string `toml:"channel_id" schema:"format=snowflake"`
+	MessageID string `toml:"message_id" schema:"format=snowflake"`
 	Emoji     string `toml:"emoji"`
-	RoleID    string `toml:"role_id"`
+	RoleID    string `toml:"role_id" schema:"format=snowflake"`
 }
 
 type CustomCommandsModule struct {
-	Enabled bool            `toml:"enabled"`
+	Enabled bool            `toml:"enabled" schema:"required"`
 	Items   []CustomCommand `toml:"items"`
 }
 
 type CustomCommand struct {
 	Name     string   `toml:"name"`
 	Aliases  []string `toml:"aliases"`
-	Cooldown int      `toml:"cooldown"`
+	Cooldown int      `toml:"cooldown" schema:"min=0"`
 	Reply    string   `toml:"reply"`
 }
 
 type AutomodLiteModule struct {
-	Enabled     bool     `toml:"enabled"`
+	Enabled     bool     `toml:"enabled" schema:"required"`
 	BannedWords []string `toml:"banned_words"`
 	Settings    struct {
 		BlockInvites bool `toml:"block_invites"`
-		MaxMentions  int  `toml:"max_mentions"`
+		MaxMentions  int  `toml:"max_mentions" schema:"min=0"`
 	} `toml:"settings"`
 }
 
