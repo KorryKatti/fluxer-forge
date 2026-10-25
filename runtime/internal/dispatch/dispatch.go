@@ -92,6 +92,7 @@ type envelope struct {
 		ID  string `json:"id"`
 		Bot bool   `json:"bot"`
 	} `json:"user"`
+	UserID string `json:"user_id"`
 }
 
 // allow applies the guards from the plan. It returns false for events no
@@ -122,6 +123,10 @@ func (d *Dispatcher) allow(ev Event) bool {
 		}
 	case "GUILD_MEMBER_ADD", "GUILD_MEMBER_UPDATE", "GUILD_MEMBER_REMOVE":
 		if env.User != nil && env.User.ID == d.botID {
+			return false
+		}
+	case "MESSAGE_REACTION_ADD", "MESSAGE_REACTION_REMOVE":
+		if env.UserID == d.botID {
 			return false
 		}
 	}

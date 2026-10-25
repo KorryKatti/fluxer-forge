@@ -149,3 +149,18 @@ func TestModulePanicDoesNotStopTheDispatcher(t *testing.T) {
 		t.Errorf("good module saw %d events, want 1", len(good.got))
 	}
 }
+
+func TestReactionFromTheBotItselfIsDropped(t *testing.T) {
+	guilds := NewGuilds()
+	mod := &fakeModule{name: "test", events: []string{"MESSAGE_REACTION_ADD"}}
+	d := New("bot", guilds, mod)
+	ctx := context.Background()
+
+	d.Dispatch(ctx, ready("g1"))
+	d.Dispatch(ctx, event("MESSAGE_REACTION_ADD", `{"guild_id":"g1","user_id":"bot"}`))
+	d.Dispatch(ctx, event("MESSAGE_REACTION_ADD", `{"guild_id":"g1","user_id":"u1"}`))
+
+	if len(mod.got) != 1 {
+		t.Errorf("module saw %d reactions, want 1", len(mod.got))
+	}
+}

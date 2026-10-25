@@ -176,3 +176,22 @@ func TestCreateDMSendsRecipientAndReturnsChannelID(t *testing.T) {
 		t.Errorf("channel = %q, want dm1", channelID)
 	}
 }
+
+func TestRemoveMemberRoleUsesDelete(t *testing.T) {
+	var gotMethod, gotPath string
+	client, _ := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	if err := client.RemoveMemberRole("g1", "u1", "r1"); err != nil {
+		t.Fatalf("RemoveMemberRole: %v", err)
+	}
+	if gotMethod != http.MethodDelete {
+		t.Errorf("method = %q, want DELETE", gotMethod)
+	}
+	if gotPath != "/guilds/g1/members/u1/roles/r1" {
+		t.Errorf("path = %q", gotPath)
+	}
+}

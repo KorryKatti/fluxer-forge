@@ -178,10 +178,8 @@ func TestUnknownModuleIsIgnoredWithWarning(t *testing.T) {
 	// A config from the site with modules this binary does not know yet
 	// must still load: unknown keys warn, never fail.
 	cfg, err := Parse("config.toml", []byte(goodConfig+`
-[modules.reaction_roles]
+[modules.sticky_messages]
 enabled = true
-
-[[modules.reaction_roles.rules]]
 channel_id = "1"
 `))
 	if err != nil {
@@ -207,5 +205,53 @@ instance_url = "nope"
 	}
 	if !strings.Contains(err.Error(), "2 problem(s)") {
 		t.Errorf("want both problems reported, got:\n%s", err)
+	}
+}
+
+func TestParseReactionRoleRules(t *testing.T) {
+	cfg, err := Parse("config.toml", []byte(`schema_version = 1
+instance_url = "https://fluxer.app"
+
+[modules.reaction_roles]
+enabled = true
+
+[[modules.reaction_roles.rules]]
+channel_id = "1501314428688998182"
+message_id = "1501320000000000000"
+emoji = "👍"
+role_id = "1501314428688999001"
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(cfg.Modules.ReactionRoles.Rules) != 1 {
+		t.Fatalf("Rules = %v, want one", cfg.Modules.ReactionRoles.Rules)
+	}
+	rule := cfg.Modules.ReactionRoles.Rules[0]
+	if rule.ChannelID != "1501314428688998182" || rule.Emoji != "👍" || rule.RoleID != "1501314428688999001" {
+		t.Errorf("rule = %+v", rule)
+	}
+}
+
+func TestReactionRoleRuleMustBeComplete(t *testing.T) {
+	_, err := Parse("config.toml", []byte(`schema_version = 1
+instance_url = "https://fluxer.app"
+
+[modules.reaction_roles]
+enabled = true
+
+[[modules.reaction_roles.rules]]
+channel_id = "not-a-number"
+message_id = ""
+emoji = ""
+role_id = "also-wrong"
+`))
+	if err == nil {
+		t.Fatal("want an error, got nil")
+	}
+	for _, want := range []string{"rules[0].channel_id", "rules[0].message_id", "rules[0].emoji", "rules[0].role_id"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %s:\n%v", want, err)
+		}
 	}
 }

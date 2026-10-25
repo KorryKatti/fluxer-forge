@@ -31,8 +31,9 @@ type Bot struct {
 }
 
 type Modules struct {
-	Welcome  WelcomeModule  `toml:"welcome"`
-	Autorole AutoroleModule `toml:"autorole"`
+	Welcome       WelcomeModule       `toml:"welcome"`
+	Autorole      AutoroleModule      `toml:"autorole"`
+	ReactionRoles ReactionRolesModule `toml:"reaction_roles"`
 }
 
 type WelcomeModule struct {
@@ -56,6 +57,18 @@ type AutoroleModule struct {
 	Settings struct {
 		DelaySeconds int `toml:"delay_seconds"`
 	} `toml:"settings"`
+}
+
+type ReactionRolesModule struct {
+	Enabled bool               `toml:"enabled"`
+	Rules   []ReactionRoleRule `toml:"rules"`
+}
+
+type ReactionRoleRule struct {
+	ChannelID string `toml:"channel_id"`
+	MessageID string `toml:"message_id"`
+	Emoji     string `toml:"emoji"`
+	RoleID    string `toml:"role_id"`
 }
 
 // JoinActive says whether welcome messages on join should be sent.
@@ -148,6 +161,26 @@ func Parse(filename string, data []byte) (*Config, error) {
 	if cfg.Modules.Autorole.Settings.DelaySeconds < 0 {
 		add("modules.autorole.settings.delay_seconds: cannot be negative %s",
 			at("modules.autorole.settings.delay_seconds"))
+	}
+
+	if cfg.Modules.ReactionRoles.Enabled && len(cfg.Modules.ReactionRoles.Rules) == 0 {
+		add("modules.reaction_roles.rules: at least one rule is required when reaction_roles is on %s",
+			at("modules.reaction_roles.rules"))
+	}
+	for i, rule := range cfg.Modules.ReactionRoles.Rules {
+		prefix := fmt.Sprintf("modules.reaction_roles.rules[%d]", i)
+		if !isSnowflake(rule.ChannelID) {
+			add("%s.channel_id: %q is not a snowflake %s", prefix, rule.ChannelID, at(prefix+".channel_id"))
+		}
+		if !isSnowflake(rule.MessageID) {
+			add("%s.message_id: %q is not a snowflake %s", prefix, rule.MessageID, at(prefix+".message_id"))
+		}
+		if !isSnowflake(rule.RoleID) {
+			add("%s.role_id: %q is not a snowflake %s", prefix, rule.RoleID, at(prefix+".role_id"))
+		}
+		if rule.Emoji == "" {
+			add("%s.emoji: required %s", prefix, at(prefix+".emoji"))
+		}
 	}
 
 	if len(problems) > 0 {

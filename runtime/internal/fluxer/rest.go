@@ -231,3 +231,9 @@ func (c *Client) AddMemberRole(guildID, userID, roleID string) error {
 	path := "/guilds/" + guildID + "/members/" + userID + "/roles/" + roleID
 	return c.Do(http.MethodPut, path, nil, nil)
 }
+
+// RemoveMemberRole takes a role away from a member.
+func (c *Client) RemoveMemberRole(guildID, userID, roleID string) error {
+	path := "/guilds/" + guildID + "/members/" + userID + "/roles/" + roleID
+	return c.Do(http.MethodDelete, path, nil, nil)
+}
