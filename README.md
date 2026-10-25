@@ -110,7 +110,8 @@ Dockerfile with a `BINARY-MISSING.txt` note.
 
 Frontend is done. The runtime connects, dispatches events, and ships all five
 modules: `welcome`, `autorole`, `reaction_roles`, `custom_commands` and
-`automod_lite`. Next: the release pipeline and hosted binaries.
+`automod_lite`. The gateway reconnects with backoff and resumes the session with
+the last sequence. Next: zstd, the release pipeline and hosted binaries.
 
 Build it with:
 

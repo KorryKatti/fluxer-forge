@@ -281,3 +281,109 @@ func TestGatewayStopsOnInvalidTokenClose(t *testing.T) {
 		t.Fatal("Run did not stop after a fatal close")
 	}
 }
+
+func TestGatewayResumesWithLastSequence(t *testing.T) {
+	connections := make(chan *websocket.Conn, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		conn.WriteJSON(map[string]any{
+			"op": opHello,
+			"d":  map[string]any{"heartbeat_interval": 1000},
+		})
+		connections <- conn
+	}))
+	defer server.Close()
+
+	gateway := NewGateway("ws"+strings.TrimPrefix(server.URL, "http"), "test-token")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		gateway.Run(ctx)
+		close(done)
+	}()
+
+	// First connection: identify, then a Ready and one dispatch.
+	first := <-connections
+	readUntil(t, first, "identify", func(m message) bool { return m.Op == opIdentify })
+	first.WriteJSON(map[string]any{
+		"op": opDispatch, "t": "READY", "s": 1,
+		"d": map[string]any{"session_id": "sess-1"},
+	})
+	waitForEvent(t, gateway, "READY")
+	first.WriteJSON(map[string]any{
+		"op": opDispatch, "t": "GUILD_MEMBER_ADD", "s": 2,
+		"d": map[string]any{"guild_id": "g1"},
+	})
+	waitForEvent(t, gateway, "GUILD_MEMBER_ADD")
+	first.Close()
+
+	// Second connection must send Resume, not Identify.
+	select {
+	case second := <-connections:
+		readUntil(t, second, "resume", func(m message) bool {
+			if m.Op != opResume {
+				return false
+			}
+			var payload struct {
+				Token     string `json:"token"`
+				SessionID string `json:"session_id"`
+				Seq       int64  `json:"seq"`
+			}
+			json.Unmarshal(m.D, &payload)
+			if payload.Token != "test-token" || payload.SessionID != "sess-1" || payload.Seq != 2 {
+				t.Errorf("resume = %+v, want token test-token session sess-1 seq 2", payload)
+			}
+			return true
+		})
+		second.WriteJSON(map[string]any{"op": opDispatch, "t": "RESUMED", "s": 3, "d": map[string]any{}})
+		waitForEvent(t, gateway, "RESUMED")
+		second.Close()
+	case <-time.After(3 * time.Second):
+		t.Fatal("no reconnect within 3s")
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not stop after cancel")
+	}
+}
+
+func waitForEvent(t *testing.T, gateway *Gateway, name string) {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case ev := <-gateway.Events:
+			if ev.Name == name {
+				return
+			}
+		case <-deadline:
+			t.Fatalf("no %s event within 2s", name)
+		}
+	}
+}
+
+func TestShouldResetSession(t *testing.T) {
+	for code, want := range map[int]bool{
+		4000: false,
+		4007: true,
+		4009: true,
+		4010: false,
+	} {
+		err := &websocket.CloseError{Code: code}
+		if got := shouldResetSession(err); got != want {
+			t.Errorf("shouldResetSession(%d) = %v, want %v", code, got, want)
+		}
+	}
+	if !shouldResetSession(errInvalidSession) {
+		t.Error("invalid session should reset")
+	}
+}

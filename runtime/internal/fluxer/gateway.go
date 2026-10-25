@@ -20,6 +20,7 @@ const (
 	opDispatch        = 0  // a real event; carries name in T and data in D
 	opHeartbeat       = 1  // both sides use it: we send one, the server may ask for one
 	opIdentify        = 2  // we send this once, right after Hello
+	opResume          = 6  // we send this to keep our session after a drop
 	opHeartbeatAck    = 11 // server confirms our heartbeat
 	opHello           = 10 // server greets us and says how often to heartbeat
 	opInvalidSession  = 9
@@ -53,6 +54,11 @@ type Gateway struct {
 	// ready is set once this connection reached READY; Run uses it to reset
 	// the reconnect backoff. Only touched by the Run goroutine.
 	ready bool
+
+	// sessionID and seq survive a dropped connection so the next socket can
+	// Resume instead of starting over. Only touched by the Run goroutine.
+	sessionID string
+	seq       atomic.Int64
 }
 
 func NewGateway(url, token string) *Gateway {
@@ -79,6 +85,10 @@ func (g *Gateway) Run(ctx context.Context) {
 			g.Fatal <- fatal
 			return
 		}
+		if shouldResetSession(err) {
+			g.sessionID = ""
+			g.seq.Store(0)
+		}
 		if err != nil {
 			slog.Warn("gateway disconnected", "error", err, "retry_in", backoff)
 		}
@@ -94,6 +104,20 @@ func (g *Gateway) Run(ctx context.Context) {
 
 		backoff = time.Duration(math.Min(float64(backoff*2), float64(30*time.Second)))
 	}
+}
+
+// shouldResetSession says whether the next connection must Identify instead
+// of Resume. 4007 means our sequence was rejected; 4009 means the session
+// timed out.
+func shouldResetSession(err error) bool {
+	if errors.Is(err, errInvalidSession) {
+		return true
+	}
+	var closeErr *websocket.CloseError
+	if errors.As(err, &closeErr) {
+		return closeErr.Code == 4007 || closeErr.Code == 4009
+	}
+	return false
 }
 
 // fatalClose turns a close code that reconnecting cannot fix into a message
@@ -142,9 +166,6 @@ func (g *Gateway) session(ctx context.Context) error {
 		return conn.WriteJSON(v)
 	}
 
-	// Last sequence number seen. The reader stores it, the heartbeat sends it.
-	var seq atomic.Int64
-
 	// The heartbeat runs in its own goroutine until this session ends.
 	// It only starts once Hello tells us the interval.
 	var heartbeatOnce sync.Once
@@ -158,7 +179,7 @@ func (g *Gateway) session(ctx context.Context) error {
 					case <-ctx.Done():
 						return
 					case <-ticker.C:
-						if err := write(heartbeatPayload(seq.Load())); err != nil {
+						if err := write(heartbeatPayload(g.seq.Load())); err != nil {
 							slog.Debug("heartbeat failed", "error", err)
 							return
 						}
@@ -191,23 +212,41 @@ func (g *Gateway) session(ctx context.Context) error {
 			}
 			startHeartbeat(time.Duration(hello.HeartbeatInterval) * time.Millisecond)
 
-			if err := write(identifyPayload(g.Token)); err != nil {
-				return err
+			// Resume when we have a live session, otherwise start a new one.
+			if g.sessionID != "" && g.seq.Load() > 0 {
+				slog.Info("gateway resuming session", "session", g.sessionID, "seq", g.seq.Load())
+				if err := write(resumePayload(g.Token, g.sessionID, g.seq.Load())); err != nil {
+					return err
+				}
+			} else {
+				g.seq.Store(0)
+				if err := write(identifyPayload(g.Token)); err != nil {
+					return err
+				}
 			}
 
 		case opDispatch:
 			if msg.S != nil {
-				seq.Store(int64(*msg.S))
+				g.seq.Store(int64(*msg.S))
 			}
 			if msg.T == "READY" {
+				var ready struct {
+					SessionID string `json:"session_id"`
+				}
+				json.Unmarshal(msg.D, &ready)
+				g.sessionID = ready.SessionID
 				g.ready = true
-				slog.Info("gateway ready")
+				slog.Info("gateway ready", "session", g.sessionID)
+			}
+			if msg.T == "RESUMED" {
+				g.ready = true
+				slog.Info("gateway resumed")
 			}
 			g.emit(Event{Name: msg.T, Data: msg.D})
 
 		case opHeartbeat:
 			// Server asked for an immediate heartbeat.
-			if err := write(heartbeatPayload(seq.Load())); err != nil {
+			if err := write(heartbeatPayload(g.seq.Load())); err != nil {
 				return err
 			}
 
@@ -254,6 +293,17 @@ func identifyPayload(token string) map[string]any {
 				"browser": "fluxer-forge",
 				"device":  "fluxer-forge",
 			},
+		},
+	}
+}
+
+func resumePayload(token, sessionID string, seq int64) map[string]any {
+	return map[string]any{
+		"op": opResume,
+		"d": map[string]any{
+			"token":      token,
+			"session_id": sessionID,
+			"seq":        seq,
 		},
 	}
 }
