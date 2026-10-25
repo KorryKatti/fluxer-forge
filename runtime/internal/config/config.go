@@ -35,6 +35,7 @@ type Modules struct {
 	Autorole       AutoroleModule       `toml:"autorole"`
 	ReactionRoles  ReactionRolesModule  `toml:"reaction_roles"`
 	CustomCommands CustomCommandsModule `toml:"custom_commands"`
+	AutomodLite    AutomodLiteModule    `toml:"automod_lite"`
 }
 
 type WelcomeModule struct {
@@ -82,6 +83,15 @@ type CustomCommand struct {
 	Aliases  []string `toml:"aliases"`
 	Cooldown int      `toml:"cooldown"`
 	Reply    string   `toml:"reply"`
+}
+
+type AutomodLiteModule struct {
+	Enabled     bool     `toml:"enabled"`
+	BannedWords []string `toml:"banned_words"`
+	Settings    struct {
+		BlockInvites bool `toml:"block_invites"`
+		MaxMentions  int  `toml:"max_mentions"`
+	} `toml:"settings"`
 }
 
 // JoinActive says whether welcome messages on join should be sent.
@@ -221,6 +231,17 @@ func Parse(filename string, data []byte) (*Config, error) {
 		}
 		if item.Cooldown < 0 {
 			add("%s.cooldown: cannot be negative %s", prefix, at(prefix+".cooldown"))
+		}
+	}
+
+	if cfg.Modules.AutomodLite.Settings.MaxMentions < 0 {
+		add("modules.automod_lite.settings.max_mentions: cannot be negative %s",
+			at("modules.automod_lite.settings.max_mentions"))
+	}
+	for i, word := range cfg.Modules.AutomodLite.BannedWords {
+		if strings.TrimSpace(word) == "" {
+			add("modules.automod_lite.banned_words[%d]: cannot be empty %s",
+				i, at("modules.automod_lite.banned_words"))
 		}
 	}
 

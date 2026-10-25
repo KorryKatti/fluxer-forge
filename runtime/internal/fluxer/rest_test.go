@@ -195,3 +195,22 @@ func TestRemoveMemberRoleUsesDelete(t *testing.T) {
 		t.Errorf("path = %q", gotPath)
 	}
 }
+
+func TestDeleteMessageUsesDelete(t *testing.T) {
+	var gotMethod, gotPath string
+	client, _ := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	if err := client.DeleteMessage("c1", "m1"); err != nil {
+		t.Fatalf("DeleteMessage: %v", err)
+	}
+	if gotMethod != http.MethodDelete {
+		t.Errorf("method = %q, want DELETE", gotMethod)
+	}
+	if gotPath != "/channels/c1/messages/m1" {
+		t.Errorf("path = %q", gotPath)
+	}
+}

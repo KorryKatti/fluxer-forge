@@ -308,3 +308,44 @@ cooldown = -1
 		}
 	}
 }
+
+func TestParseAutomodLite(t *testing.T) {
+	cfg, err := Parse("config.toml", []byte(`schema_version = 1
+instance_url = "https://fluxer.app"
+
+[modules.automod_lite]
+enabled = true
+banned_words = ["spam", "scam"]
+
+[modules.automod_lite.settings]
+block_invites = true
+max_mentions = 3
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(cfg.Modules.AutomodLite.BannedWords) != 2 {
+		t.Errorf("BannedWords = %v, want two", cfg.Modules.AutomodLite.BannedWords)
+	}
+	if !cfg.Modules.AutomodLite.Settings.BlockInvites || cfg.Modules.AutomodLite.Settings.MaxMentions != 3 {
+		t.Errorf("Settings = %+v", cfg.Modules.AutomodLite.Settings)
+	}
+}
+
+func TestAutomodRejectsNegativeMentions(t *testing.T) {
+	_, err := Parse("config.toml", []byte(`schema_version = 1
+instance_url = "https://fluxer.app"
+
+[modules.automod_lite]
+enabled = true
+
+[modules.automod_lite.settings]
+max_mentions = -1
+`))
+	if err == nil {
+		t.Fatal("want an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "max_mentions") {
+		t.Errorf("error does not mention max_mentions:\n%v", err)
+	}
+}

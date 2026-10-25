@@ -232,6 +232,12 @@ func (c *Client) AddMemberRole(guildID, userID, roleID string) error {
 	return c.Do(http.MethodPut, path, nil, nil)
 }
 
+// DeleteMessage removes a message (Manage Messages permission).
+func (c *Client) DeleteMessage(channelID, messageID string) error {
+	path := "/channels/" + channelID + "/messages/" + messageID
+	return c.Do(http.MethodDelete, path, nil, nil)
+}
+
 // RemoveMemberRole takes a role away from a member.
 func (c *Client) RemoveMemberRole(guildID, userID, roleID string) error {
 	path := "/guilds/" + guildID + "/members/" + userID + "/roles/" + roleID
