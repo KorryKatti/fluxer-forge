@@ -12,6 +12,9 @@ lives in page memory only.
 commands and react with emoji. Everything Fluxer can't do is left out of the UI
 instead of shipped broken.
 
+Questions, feedback or a bot to show off? Join the Fluxer server:
+[fluxer.gg/s1evrala](https://fluxer.gg/s1evrala).
+
 ## Modules
 
 | Module | What it does |
@@ -121,6 +124,19 @@ SHA-256 before they enter the archive.
 The wizard validates as you type. Errors (missing channel IDs, bad snowflakes,
 empty required fields) disable the download buttons; warnings do not. The
 invite URL pre-fills the union of the enabled modules' permission bits.
+
+## Troubleshooting
+
+- **Nothing happens:** check `dry_run` is `false`, the module is `enabled`, and
+  the bot is actually in the guild. With dry run on, actions are only logged.
+- **`MISSING_PERMISSIONS` when granting a role:** Fluxer requires the bot's
+  highest role to rank strictly above the role it assigns — `ADMINISTRATOR` does
+  not bypass the role hierarchy. Drag the bot's role above the roles it manages.
+- **`MISSING_PERMISSIONS` on a channel:** give the bot **View Channel** and
+  **Send Messages** there. Run `./bot --doctor --config config.toml` to see which
+  configured channel is failing.
+- **Token check fails:** put the bot token in `FLUXER_TOKEN` or `.env`, and make
+  sure it was copied whole. The token is never accepted as a command-line flag.
 
 ## Status
 
