@@ -19,6 +19,7 @@ import (
 
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/config"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/dispatch"
+	"github.com/KorryKatti/fluxer-forge/runtime/internal/doctor"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/fluxer"
 	botlog "github.com/KorryKatti/fluxer-forge/runtime/internal/log"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/automod"
@@ -29,10 +30,20 @@ import (
 	bottoken "github.com/KorryKatti/fluxer-forge/runtime/internal/token"
 )
 
+// version is replaced at build time with -ldflags "-X main.version=v1.2.3".
+var version = "dev"
+
 func main() {
 	configPath := flag.String("config", "config.toml", "path to the config file")
 	dryRunFlag := flag.Bool("dry-run", false, "force dry-run, whatever the config says")
+	doctorFlag := flag.Bool("doctor", false, "check the instance, token, gateway and channels, then exit")
+	versionFlag := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("fluxer-bot %s (schema %d)\n", version, config.SupportedSchemaVersion)
+		return
+	}
 
 	closeLogs, err := botlog.Setup("logs")
 	if err != nil {
@@ -69,6 +80,13 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	if *doctorFlag {
+		if err := doctor.Run(ctx, cfg, token, os.Stdout); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
 
 	// 2. Ask the instance where its API and gateway live.
 	disco, err := fluxer.Discover(ctx, cfg.InstanceURL)

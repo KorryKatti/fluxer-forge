@@ -214,3 +214,20 @@ func TestDeleteMessageUsesDelete(t *testing.T) {
 		t.Errorf("path = %q", gotPath)
 	}
 }
+
+func TestGetChannelDecodesNameAndGuild(t *testing.T) {
+	client, _ := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/channels/c1" {
+			t.Errorf("path = %q, want /channels/c1", r.URL.Path)
+		}
+		w.Write([]byte(`{"id":"c1","guild_id":"g1","name":"general"}`))
+	})
+
+	channel, err := client.GetChannel("c1")
+	if err != nil {
+		t.Fatalf("GetChannel: %v", err)
+	}
+	if channel.ID != "c1" || channel.GuildID != "g1" || channel.Name != "general" {
+		t.Errorf("channel = %+v", channel)
+	}
+}

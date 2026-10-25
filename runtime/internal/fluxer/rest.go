@@ -210,6 +210,22 @@ func (c *Client) CreateMessage(channelID, content string) error {
 	return c.Do(http.MethodPost, "/channels/"+channelID+"/messages", body, nil)
 }
 
+// Channel is the part of a channel object the doctor needs.
+type Channel struct {
+	ID      string `json:"id"`
+	GuildID string `json:"guild_id"`
+	Name    string `json:"name"`
+}
+
+// GetChannel reads one channel. It fails when the bot cannot see the channel.
+func (c *Client) GetChannel(channelID string) (*Channel, error) {
+	var channel Channel
+	if err := c.Do(http.MethodGet, "/channels/"+channelID, nil, &channel); err != nil {
+		return nil, err
+	}
+	return &channel, nil
+}
+
 // CreateDM opens (or reopens) a direct message with a user and returns the
 // channel ID messages should be posted to.
 func (c *Client) CreateDM(userID string) (string, error) {

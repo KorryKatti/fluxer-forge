@@ -84,6 +84,7 @@ runtime/       Go bot — one static binary, no dependencies at runtime
   internal/modules/       welcome, autorole, reaction_roles, custom_commands, automod
   internal/log/           stdout + daily JSONL log file
   internal/token/         token from env, .env, token file, or prompt
+  internal/doctor/        --doctor preflight checks
 ```
 
 ## Running the site
@@ -109,7 +110,7 @@ Dockerfile with a `BINARY-MISSING.txt` note.
 
 Frontend is done. The runtime connects, dispatches events, and ships all five
 modules: `welcome`, `autorole`, `reaction_roles`, `custom_commands` and
-`automod_lite`. Next: `--doctor`, the release pipeline and hosted binaries.
+`automod_lite`. Next: the release pipeline and hosted binaries.
 
 Build it with:
 
@@ -117,6 +118,7 @@ Build it with:
 cd runtime
 go build -o bot ./cmd/bot
 ./bot -config config.toml
+./bot -doctor -config config.toml   # instance, token, gateway, channels
 ```
 
 The token is read from `FLUXER_TOKEN`, then `./.env`, then `./token`, then a
