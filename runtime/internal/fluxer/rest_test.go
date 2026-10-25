@@ -44,13 +44,18 @@ func TestCreateMessageSendsJSONWithAuth(t *testing.T) {
 }
 
 func TestGetCurrentUserDecodesResponse(t *testing.T) {
+	var gotPath string
 	client, _ := newTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
 		w.Write([]byte(`{"id": "42", "username": "my-bot", "bot": true}`))
 	})
 
 	user, err := client.GetCurrentUser()
 	if err != nil {
 		t.Fatalf("GetCurrentUser: %v", err)
+	}
+	if gotPath != "/users/@me" {
+		t.Errorf("path = %q, want /users/@me", gotPath)
 	}
 	if user.ID != "42" || user.Username != "my-bot" || !user.Bot {
 		t.Errorf("user = %+v, want id=42 username=my-bot bot=true", user)

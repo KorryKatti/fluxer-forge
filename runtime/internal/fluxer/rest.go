@@ -198,7 +198,7 @@ type User struct {
 // GetCurrentUser asks the instance who we are. It proves the token works.
 func (c *Client) GetCurrentUser() (*User, error) {
 	var user User
-	if err := c.Do(http.MethodGet, "/applications/@me", nil, &user); err != nil {
+	if err := c.Do(http.MethodGet, "/users/@me", nil, &user); err != nil {
 		return nil, err
 	}
 	return &user, nil
