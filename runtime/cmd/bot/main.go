@@ -3,7 +3,9 @@
 //
 // Usage:
 //
-//	FLUXER_TOKEN=<token> bot [-config config.toml] [-dry-run]
+//	bot [-config config.toml] [-dry-run]
+//
+// The token comes from FLUXER_TOKEN, .env, a local token file, or a prompt.
 package main
 
 import (
@@ -21,6 +23,7 @@ import (
 	botlog "github.com/KorryKatti/fluxer-forge/runtime/internal/log"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/autorole"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/welcome"
+	bottoken "github.com/KorryKatti/fluxer-forge/runtime/internal/token"
 )
 
 func main() {
@@ -54,13 +57,11 @@ func main() {
 		"modules", enabledModules(cfg),
 	)
 
-	// The token comes from the environment, never from a flag or a file:
-	// flags end up in shell history and process lists.
-	token := os.Getenv("FLUXER_TOKEN")
-	if token == "" {
-		fmt.Fprintln(os.Stderr, "FLUXER_TOKEN is not set")
-		fmt.Fprintln(os.Stderr, "example: FLUXER_TOKEN=xyz ./bot -config config.toml")
-		os.Exit(1)
+	// The token is never taken from a flag: flags end up in shell history
+	// and process lists.
+	token, err := findToken()
+	if err != nil {
+		fatal("no bot token", err)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -107,10 +108,32 @@ func main() {
 		case <-ctx.Done():
 			slog.Info("shutting down")
 			return
+		case err := <-gateway.Fatal:
+			slog.Error("gateway stopped", "error", err)
+			return
 		case ev := <-gateway.Events:
 			dispatcher.Dispatch(ctx, ev)
 		}
 	}
+}
+
+// findToken tries every source in order and stops at the first one that has
+// something. The prompt writes ./token with 0600 so it is asked only once.
+func findToken() (string, error) {
+	if t := bottoken.FromEnv(); t != "" {
+		return t, nil
+	}
+	if t, err := bottoken.FromDotEnv(".env"); err != nil {
+		return "", fmt.Errorf("read .env: %w", err)
+	} else if t != "" {
+		return t, nil
+	}
+	if t, err := bottoken.FromFile("token"); err != nil {
+		return "", fmt.Errorf("read token file: %w", err)
+	} else if t != "" {
+		return t, nil
+	}
+	return bottoken.Prompt("token")
 }
 
 // enabledModules returns e.g. "welcome, autorole" for the startup log.

@@ -83,6 +83,7 @@ runtime/       Go bot — one static binary, no dependencies at runtime
   internal/dispatch/      event router, guild filter, loop guards
   internal/modules/       welcome, autorole
   internal/log/           stdout + daily JSONL log file
+  internal/token/         token from env, .env, token file, or prompt
 ```
 
 ## Running the site
@@ -114,5 +115,8 @@ Build it with:
 ```sh
 cd runtime
 go build -o bot ./cmd/bot
-FLUXER_TOKEN=... ./bot -config config.toml
+./bot -config config.toml
 ```
+
+The token is read from `FLUXER_TOKEN`, then `./.env`, then `./token`, then a
+no-echo prompt (saved to `./token` with `0600`).

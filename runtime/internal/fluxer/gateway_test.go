@@ -235,3 +235,49 @@ func TestDiscoveryRejectsErrorResponse(t *testing.T) {
 		t.Fatal("want error on HTTP 503, got nil")
 	}
 }
+
+func TestGatewayStopsOnInvalidTokenClose(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		conn.WriteJSON(map[string]any{
+			"op": opHello,
+			"d":  map[string]any{"heartbeat_interval": 100},
+		})
+		conn.WriteControl(
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(4004, "invalid token"),
+			time.Now().Add(time.Second),
+		)
+	}))
+	defer server.Close()
+
+	gateway := NewGateway("ws"+strings.TrimPrefix(server.URL, "http"), "bad-token")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		gateway.Run(ctx)
+		close(done)
+	}()
+
+	select {
+	case err := <-gateway.Fatal:
+		if !strings.Contains(err.Error(), "4004") {
+			t.Errorf("fatal = %q, want it to mention 4004", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no fatal error within 2s")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Run did not stop after a fatal close")
+	}
+}

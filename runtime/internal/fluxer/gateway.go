@@ -3,6 +3,8 @@ package fluxer
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"math"
 	"runtime"
@@ -44,6 +46,10 @@ type Gateway struct {
 	// Buffered: if nobody reads for a while, events are dropped (and logged).
 	Events chan Event
 
+	// Fatal receives a reason when reconnecting cannot help, e.g. a rejected
+	// token. Run then stops for good.
+	Fatal chan error
+
 	// ready is set once this connection reached READY; Run uses it to reset
 	// the reconnect backoff. Only touched by the Run goroutine.
 	ready bool
@@ -54,6 +60,7 @@ func NewGateway(url, token string) *Gateway {
 		URL:    url,
 		Token:  token,
 		Events: make(chan Event, 64),
+		Fatal:  make(chan error, 1),
 	}
 }
 
@@ -66,6 +73,10 @@ func (g *Gateway) Run(ctx context.Context) {
 		g.ready = false
 		err := g.session(ctx)
 		if ctx.Err() != nil {
+			return
+		}
+		if fatal := fatalClose(err); fatal != nil {
+			g.Fatal <- fatal
 			return
 		}
 		if err != nil {
@@ -82,6 +93,23 @@ func (g *Gateway) Run(ctx context.Context) {
 		}
 
 		backoff = time.Duration(math.Min(float64(backoff*2), float64(30*time.Second)))
+	}
+}
+
+// fatalClose turns a close code that reconnecting cannot fix into a message
+// for the user. Every other error means "try again".
+func fatalClose(err error) error {
+	var closeErr *websocket.CloseError
+	if !errors.As(err, &closeErr) {
+		return nil
+	}
+	switch closeErr.Code {
+	case 4004:
+		return fmt.Errorf("the instance rejected the bot token (close 4004) — check FLUXER_TOKEN")
+	case 4011:
+		return fmt.Errorf("the instance requires sharding, which this bot does not support (close 4011)")
+	default:
+		return nil
 	}
 }
 
