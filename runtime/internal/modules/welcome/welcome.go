@@ -6,11 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strconv"
-	"strings"
 
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/config"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/dispatch"
+	"github.com/KorryKatti/fluxer-forge/runtime/internal/template"
 )
 
 // Client is the small part of the REST client this module needs.
@@ -101,40 +100,17 @@ func (w *Welcome) Handle(ctx context.Context, ev dispatch.Event) error {
 	return nil
 }
 
-// render fills the fixed template tokens. There is no scripting: an unknown
-// {token} is left exactly as written.
+// render fills the fixed template tokens with this guild and member.
 func (w *Welcome) render(text string, m member, channelID string) string {
 	info, _ := w.guilds.Get(m.GuildID)
-
-	guildName := info.Name
-	if guildName == "" {
-		guildName = "this server"
-	}
-
-	displayName := m.User.GlobalName
-	if displayName == "" {
-		displayName = m.User.Username
-	}
-	if displayName == "" {
-		displayName = "<@" + m.User.ID + ">"
-	}
-
-	channel := info.Channels[channelID]
-	if channel == "" {
-		channel = channelID
-	}
-
-	memberCount := strconv.Itoa(info.MemberCount)
-
-	// Longer tokens first, otherwise {user} would eat the start of {user.name}.
-	replacer := strings.NewReplacer(
-		"{user.name}", displayName,
-		"{user.id}", m.User.ID,
-		"{guild.id}", m.GuildID,
-		"{member.count}", memberCount,
-		"{user}", "<@"+m.User.ID+">",
-		"{guild}", guildName,
-		"{channel}", channel,
-	)
-	return replacer.Replace(text)
+	return template.Render(text, template.Context{
+		UserID:      m.User.ID,
+		UserName:    m.User.Username,
+		DisplayName: m.User.GlobalName,
+		GuildID:     m.GuildID,
+		GuildName:   info.Name,
+		ChannelID:   channelID,
+		ChannelName: info.Channels[channelID],
+		MemberCount: info.MemberCount,
+	})
 }

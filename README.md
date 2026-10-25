@@ -81,7 +81,7 @@ runtime/       Go bot — one static binary, no dependencies at runtime
   internal/config/        config.toml structs, defaults, validation
   internal/fluxer/        discovery, REST client, gateway client
   internal/dispatch/      event router, guild filter, loop guards
-  internal/modules/       welcome, autorole, reaction_roles
+  internal/modules/       welcome, autorole, reaction_roles, custom_commands
   internal/log/           stdout + daily JSONL log file
   internal/token/         token from env, .env, token file, or prompt
 ```
@@ -108,7 +108,7 @@ Dockerfile with a `BINARY-MISSING.txt` note.
 ## Status
 
 Frontend is done. The runtime connects, dispatches events, and ships `welcome`,
-`autorole` and `reaction_roles`. Next: `custom_commands`, `automod_lite` and the
+`autorole`, `reaction_roles` and `custom_commands`. Next: `automod_lite` and the
 release pipeline.
 
 Build it with:

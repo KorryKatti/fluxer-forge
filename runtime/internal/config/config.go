@@ -31,9 +31,10 @@ type Bot struct {
 }
 
 type Modules struct {
-	Welcome       WelcomeModule       `toml:"welcome"`
-	Autorole      AutoroleModule      `toml:"autorole"`
-	ReactionRoles ReactionRolesModule `toml:"reaction_roles"`
+	Welcome        WelcomeModule        `toml:"welcome"`
+	Autorole       AutoroleModule       `toml:"autorole"`
+	ReactionRoles  ReactionRolesModule  `toml:"reaction_roles"`
+	CustomCommands CustomCommandsModule `toml:"custom_commands"`
 }
 
 type WelcomeModule struct {
@@ -69,6 +70,18 @@ type ReactionRoleRule struct {
 	MessageID string `toml:"message_id"`
 	Emoji     string `toml:"emoji"`
 	RoleID    string `toml:"role_id"`
+}
+
+type CustomCommandsModule struct {
+	Enabled bool            `toml:"enabled"`
+	Items   []CustomCommand `toml:"items"`
+}
+
+type CustomCommand struct {
+	Name     string   `toml:"name"`
+	Aliases  []string `toml:"aliases"`
+	Cooldown int      `toml:"cooldown"`
+	Reply    string   `toml:"reply"`
 }
 
 // JoinActive says whether welcome messages on join should be sent.
@@ -180,6 +193,34 @@ func Parse(filename string, data []byte) (*Config, error) {
 		}
 		if rule.Emoji == "" {
 			add("%s.emoji: required %s", prefix, at(prefix+".emoji"))
+		}
+	}
+
+	if cfg.Modules.CustomCommands.Enabled && cfg.Bot.Prefix == "" {
+		add("bot.prefix: required when custom_commands is on %s", at("bot.prefix"))
+	}
+	if cfg.Modules.CustomCommands.Enabled && len(cfg.Modules.CustomCommands.Items) == 0 {
+		add("modules.custom_commands.items: at least one command is required when custom_commands is on %s",
+			at("modules.custom_commands.items"))
+	}
+	for i, item := range cfg.Modules.CustomCommands.Items {
+		prefix := fmt.Sprintf("modules.custom_commands.items[%d]", i)
+		if item.Name == "" {
+			add("%s.name: required %s", prefix, at(prefix+".name"))
+		} else if strings.ContainsAny(item.Name, " \t") {
+			add("%s.name: %q cannot contain spaces %s", prefix, item.Name, at(prefix+".name"))
+		}
+		for j, alias := range item.Aliases {
+			if alias == "" || strings.ContainsAny(alias, " \t") {
+				add("%s.aliases[%d]: %q cannot be empty or contain spaces %s",
+					prefix, j, alias, at(prefix+".aliases"))
+			}
+		}
+		if item.Reply == "" {
+			add("%s.reply: required %s", prefix, at(prefix+".reply"))
+		}
+		if item.Cooldown < 0 {
+			add("%s.cooldown: cannot be negative %s", prefix, at(prefix+".cooldown"))
 		}
 	}
 

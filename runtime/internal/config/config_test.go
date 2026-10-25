@@ -255,3 +255,56 @@ role_id = "also-wrong"
 		}
 	}
 }
+
+func TestParseCustomCommands(t *testing.T) {
+	cfg, err := Parse("config.toml", []byte(`schema_version = 1
+instance_url = "https://fluxer.app"
+
+[bot]
+prefix = "!"
+
+[modules.custom_commands]
+enabled = true
+
+[[modules.custom_commands.items]]
+name = "ping"
+aliases = ["p"]
+cooldown = 3
+reply = "Pong!"
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(cfg.Modules.CustomCommands.Items) != 1 {
+		t.Fatalf("Items = %v, want one", cfg.Modules.CustomCommands.Items)
+	}
+	item := cfg.Modules.CustomCommands.Items[0]
+	if item.Name != "ping" || item.Cooldown != 3 || item.Reply != "Pong!" || len(item.Aliases) != 1 {
+		t.Errorf("item = %+v", item)
+	}
+}
+
+func TestCustomCommandMustBeComplete(t *testing.T) {
+	_, err := Parse("config.toml", []byte(`schema_version = 1
+instance_url = "https://fluxer.app"
+
+[bot]
+prefix = ""
+
+[modules.custom_commands]
+enabled = true
+
+[[modules.custom_commands.items]]
+name = "two words"
+reply = ""
+cooldown = -1
+`))
+	if err == nil {
+		t.Fatal("want an error, got nil")
+	}
+	for _, want := range []string{"bot.prefix", "items[0].name", "items[0].reply", "items[0].cooldown"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %s:\n%v", want, err)
+		}
+	}
+}

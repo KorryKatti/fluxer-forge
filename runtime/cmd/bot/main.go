@@ -22,6 +22,7 @@ import (
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/fluxer"
 	botlog "github.com/KorryKatti/fluxer-forge/runtime/internal/log"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/autorole"
+	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/customcommands"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/reactionroles"
 	"github.com/KorryKatti/fluxer-forge/runtime/internal/modules/welcome"
 	bottoken "github.com/KorryKatti/fluxer-forge/runtime/internal/token"
@@ -100,6 +101,9 @@ func main() {
 	if cfg.Modules.ReactionRoles.Enabled {
 		modules = append(modules, reactionroles.New(cfg.Modules.ReactionRoles, rest, dryRun))
 	}
+	if cfg.Modules.CustomCommands.Enabled {
+		modules = append(modules, customcommands.New(cfg.Modules.CustomCommands, cfg.Bot.Prefix, rest, guilds, dryRun))
+	}
 	dispatcher := dispatch.New(user.ID, guilds, modules...)
 
 	// 5. Stay connected. Run only returns when ctx is cancelled.
@@ -151,6 +155,9 @@ func enabledModules(cfg *config.Config) string {
 	}
 	if cfg.Modules.ReactionRoles.Enabled {
 		names = append(names, "reaction_roles")
+	}
+	if cfg.Modules.CustomCommands.Enabled {
+		names = append(names, "custom_commands")
 	}
 	if len(names) == 0 {
 		return "none"
