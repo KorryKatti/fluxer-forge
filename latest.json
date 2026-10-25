@@ -1,0 +1,21 @@
+{
+  "version": "v0.1.0",
+  "schema_version": 1,
+  "targets": {
+    "linux-amd64": {
+      "url": "https://raw.githubusercontent.com/KorryKatti/fluxer-forge/dist/linux-amd64/bot",
+      "sha256": "f1374b96ffe58232ee371205b5e69ba5d0f60e19f0b61d790439016c8e1ebd85",
+      "size": 7622816
+    },
+    "linux-arm64": {
+      "url": "https://raw.githubusercontent.com/KorryKatti/fluxer-forge/dist/linux-arm64/bot",
+      "sha256": "7a5b29122220b0d235294b5f6e0b89ccdedca1689f1d635e37f70379532b36d3",
+      "size": 7078048
+    },
+    "windows-amd64": {
+      "url": "https://raw.githubusercontent.com/KorryKatti/fluxer-forge/dist/windows-amd64/bot.exe",
+      "sha256": "23dd0bcd99429faacdb3b1f38ae1754c346d73e5bd688ac8354174437461eb37",
+      "size": 7892992
+    }
+  }
+}
